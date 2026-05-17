@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OnlineFix For Us</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0B2752;
+      --dot: #177899;
+      --accent: #1fb3d4;
+      --accent2: #0ef0ff;
+      --card-bg: rgba(11, 39, 82, 0.85);
+      --border: rgba(23, 120, 153, 0.5);
+      --text: #e0f4ff;
+      --muted: #7ab8cc;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── ANIMATED DOTS CANVAS ── */
+    #dots-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── LAYOUT ── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    header h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2rem, 6vw, 3.4rem);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: var(--accent2);
+      text-shadow: 0 0 30px rgba(14,240,255,0.4), 0 0 60px rgba(14,240,255,0.15);
+      line-height: 1.1;
+    }
+    header p {
+      margin-top: 10px;
+      font-size: 1.1rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── SEARCH BAR ── */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 48px;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 18px 60px 18px 24px;
+      background: rgba(23, 120, 153, 0.12);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text);
+      outline: none;
+      letter-spacing: 0.05em;
+      transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+    }
+    .search-wrap input::placeholder { color: var(--muted); opacity: 0.7; }
+    .search-wrap input:focus {
+      border-color: var(--accent2);
+      background: rgba(23, 120, 153, 0.2);
+      box-shadow: 0 0 0 3px rgba(14,240,255,0.1), 0 0 30px rgba(14,240,255,0.08);
+    }
+    .search-icon {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 1.4rem;
+      pointer-events: none;
+      transition: color 0.3s;
+    }
+    .search-wrap input:focus ~ .search-icon { color: var(--accent2); }
+
+    /* ── RESULTS LABEL ── */
+    .results-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      min-height: 18px;
+    }
+
+    /* ── GAME GRID ── */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── GAME CARD ── */
+    .game-card {
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(12px);
+      transition: transform 0.25s cubic-bezier(.22,1,.36,1),
+                  box-shadow 0.25s ease,
+                  border-color 0.25s ease;
+      animation: cardIn 0.35s ease both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(18px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .game-card:hover {
+      transform: translateY(-5px) scale(1.02);
+      border-color: var(--accent2);
+      box-shadow: 0 12px 40px rgba(14,240,255,0.15), 0 0 0 1px rgba(14,240,255,0.2);
+    }
+
+    /* glow line on top */
+    .game-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .game-card:hover::before { opacity: 1; }
+
+    .game-thumb {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      background: rgba(23,120,153,0.15);
+    }
+    /* fallback when image missing */
+    .game-thumb-placeholder {
+      width: 100%;
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, rgba(23,120,153,0.2), rgba(14,240,255,0.05));
+      color: var(--dot);
+    }
+
+    .game-info {
+      padding: 14px 16px 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .game-name {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--accent2);
+      line-height: 1.3;
+    }
+    .game-play {
+      margin-top: auto;
+      display: inline-block;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding-top: 8px;
+      border-top: 1px solid rgba(23,120,153,0.25);
+    }
+    .game-card:hover .game-play { color: var(--accent2); }
+
+    /* ── NO RESULTS ── */
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+      display: none;
+    }
+    .no-results .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
+
+
+  </style>
+</head>
+<body>
+
+<canvas id="dots-canvas"></canvas>
+
+<div class="wrapper">
+  <header>
+    <h1>OnlineFix For Us</h1>
+    <p>Search · Discover · Play</p>
+  </header>
+
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="Search games…" autocomplete="off" spellcheck="false"/>
+    <span class="search-icon">⌕</span>
+  </div>
+
+  <div class="results-label" id="results-label"></div>
+  <div class="game-grid" id="game-grid"></div>
+  <div class="no-results" id="no-results">
+    <div class="icon">🎮</div>
+    No games found. Try a different search.
+  </div>
+
+
+</div>
+
+<script>
+  /* ════════════════════════════════════════════════
+     GAMES LIST — ADD YOUR GAMES HERE
+     ════════════════════════════════════════════════
+     Each entry:
+       name  : display name & search keyword
+       image : filename of the .png in the same folder
+       link  : URL the card opens when clicked
+  ═══════════════════════════════════════════════ */
+  const GAMES = [
+    { name: "Peak",        image: "peak.png",        link: "https://pixeldrain.com/u/jQeTpXrh" },
+    { name: "Pratfall",    image: "pratfall.png",    link: "https://pixeldrain.com/u/HsM9aBoW" },
+    { name: "Gang Beast",  image: "gang beast.png",  link: "https://pixeldrain.com/u/2Kxi1PdU" },
+    { name: "RV There Yet?", image: "rv there yet.png", link: "https://pixeldrain.com/u/2YwJoQKp" },
+    { name: "Smack Talk",  image: "smack talk.png",  link: "https://pixeldrain.com/u/h4Vd5Jto" },
+    { name: "Among Us (not OnlineFix)",    image: "among us.png",    link: "https://www.mediafire.com/file/ykzfk3n2qx60hr2/AmongUs.rar/file" },
+    { name: "Guilty as Sock!",    image: "guilty as sock.png",    link: "https://pixeldrain.com/u/CgMWgyrp" },
+    { name: "Pummel Party", image: "pummel party.png", link: "https://pixeldrain.com/u/e32nnhvD" },
+    { name: "Wobbly Life", image: "wobbly life.png", link: "https://www.mediafire.com/file/tix5mpbmm7c8r59/WL_Fix_Repair_Steam_Generic.rar/file" },
+    { name: "Human Fall Flat", image: "human fall flat.png", link: "https://pixeldrain.com/u/ihUqGeDT" },
+    { name: "Stick Fight: The Game", image: "stick fight.png", link: "https://uploads.online-fix.me:2053/uploads/Stick%20Fight%20The%20Game/Fix%20Repair/" },
+    { name: "Gamble With Your Friends", image: "gamble with your friends.png", link: "https://pixeldrain.com/u/4jbkTxQv" },
+    { name: "Move or Die", image: "move or die.png", link: "https://www.mediafire.com/file/lr70x5lnvn3uu7h/MoD_Fix_Repair_Steam_V2_Generic.rar/file" },
+    { name: "Carry The Glass", image: "carry the glass.png", link: "https://pixeldrain.com/u/tyPec2XK" },
+    { name: "R.E.P.O.", image: "repo.png", link: "https://pixeldrain.com/u/yE6VSxB6" },
+    { name: "ROUNDS", image: "rounds.png", link: "https://pixeldrain.com/u/4oKF6CQG" },
+    { name: "Schedule I", image: "schedule i.png", link: "https://pixeldrain.com/u/3NWtksCK" },
+  ];
+  /* ════════════════════════════════════════════════ */
+
+
+  // ── DOTS ANIMATION ──────────────────────────────
+  const canvas = document.getElementById('dots-canvas');
+  const ctx = canvas.getContext('2d');
+  let dots = [];
+  const DOT_COUNT = 80;
+
+  function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function makeDot() {
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 2.8 + 0.8,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      alpha: Math.random() * 0.5 + 0.2,
+      pulse: Math.random() * Math.PI * 2,
+      pulseSpeed: Math.random() * 0.02 + 0.005,
+    };
+  }
+
+  function initDots() {
+    dots = Array.from({ length: DOT_COUNT }, makeDot);
+  }
+
+  function drawDots() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    dots.forEach(d => {
+      d.x  += d.vx;
+      d.y  += d.vy;
+      d.pulse += d.pulseSpeed;
+      const a = d.alpha * (0.7 + 0.3 * Math.sin(d.pulse));
+
+      if (d.x < -10) d.x = canvas.width + 10;
+      if (d.x > canvas.width + 10) d.x = -10;
+      if (d.y < -10) d.y = canvas.height + 10;
+      if (d.y > canvas.height + 10) d.y = -10;
+
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(23,120,153,${a})`;
+      ctx.fill();
+
+      // draw faint connection lines between close dots
+      dots.forEach(d2 => {
+        const dx = d.x - d2.x, dy = d.y - d2.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 130 && dist > 0) {
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d2.x, d2.y);
+          ctx.strokeStyle = `rgba(23,120,153,${0.12 * (1 - dist/130)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      });
+    });
+    requestAnimationFrame(drawDots);
+  }
+
+  resizeCanvas(); initDots(); drawDots();
+  window.addEventListener('resize', () => { resizeCanvas(); initDots(); });
+
+
+  // ── SEARCH & RENDER ─────────────────────────────
+  const input        = document.getElementById('search-input');
+  const grid         = document.getElementById('game-grid');
+  const label        = document.getElementById('results-label');
+  const noResults    = document.getElementById('no-results');
+
+  function renderGames(list) {
+    grid.innerHTML = '';
+    if (list.length === 0) {
+      noResults.style.display = 'block';
+      label.textContent = '';
+      return;
+    }
+    noResults.style.display = 'none';
+    label.textContent = `${list.length} game${list.length !== 1 ? 's' : ''} found`;
+
+    list.forEach((g, i) => {
+      const card = document.createElement('a');
+      card.className = 'game-card';
+      card.href = g.link;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.style.animationDelay = `${i * 60}ms`;
+
+      // Try to show image; fall back to emoji placeholder
+      const imgTag = `<img
+          class="game-thumb"
+          src="${g.image}"
+          alt="${g.name}"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+        />
+        <div class="game-thumb-placeholder" style="display:none;">🎮</div>`;
+
+      card.innerHTML = `
+        ${imgTag}
+        <div class="game-info">
+          <div class="game-name">${g.name}</div>
+          <div class="game-play">▶ Play Now</div>
+        </div>`;
+
+      grid.appendChild(card);
+    });
+  }
+
+  function handleSearch() {
+    const q = input.value.trim().toLowerCase();
+    if (!q) {
+      renderGames(GAMES);
+      label.textContent = '';
+      return;
+    }
+    // Show all games whose name starts with the query first, then contains
+    const starts   = GAMES.filter(g => g.name.toLowerCase().startsWith(q));
+    const contains = GAMES.filter(g => !g.name.toLowerCase().startsWith(q) && g.name.toLowerCase().includes(q));
+    renderGames([...starts, ...contains]);
+  }
+
+  input.addEventListener('input', handleSearch);
+
+  // Initial render — all games
+  renderGames(GAMES);
+  label.textContent = '';
+</script>
+</body>
+</html>
