@@ -125,8 +125,14 @@
     /* ── GAME GRID ── */
     .game-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
+    }
+    @media (max-width: 600px) {
+      .game-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 380px) {
+      .game-grid { grid-template-columns: 1fr; }
     }
 
     /* ── GAME CARD ── */
@@ -225,6 +231,64 @@
     }
     .no-results .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
 
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+    .page-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      height: 42px;
+      padding: 0 10px;
+      background: rgba(23, 120, 153, 0.25);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s;
+      user-select: none;
+    }
+    .page-btn:hover {
+      background: rgba(23, 120, 153, 0.5);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      box-shadow: 0 0 14px rgba(14,240,255,0.2);
+      transform: translateY(-1px);
+    }
+    .page-btn.active {
+      background: rgba(23, 120, 153, 0.55);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      box-shadow: 0 0 18px rgba(14,240,255,0.25), inset 0 0 10px rgba(14,240,255,0.08);
+    }
+    .page-btn.arrow {
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+    .page-btn:disabled,
+    .page-btn[disabled] {
+      opacity: 0.3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .page-dots {
+      color: var(--muted);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.8rem;
+      padding: 0 4px;
+      user-select: none;
+    }
 
   </style>
 </head>
@@ -249,6 +313,7 @@
     <div class="icon">🎮</div>
     No games found. Try a different search.
   </div>
+  <div class="pagination" id="pagination"></div>
 
 
 </div>
@@ -261,6 +326,8 @@
        name  : display name & search keyword
        image : filename of the .png in the same folder
        link  : URL the card opens when clicked
+
+     Games auto-sort: numbers first (0-9), then letters (A-Z).
   ═══════════════════════════════════════════════ */
   const GAMES = [
     { name: "Peak",        image: "peak.png",        link: "https://pixeldrain.com/u/jQeTpXrh" },
@@ -291,6 +358,20 @@
     { name: "Overcooked! 2", image: "overcook2.png", link: "https://uploads.online-fix.me:2053/uploads/Overcooked%202/Fix%20Repair/" },
   ];
   /* ════════════════════════════════════════════════ */
+
+
+  // ── SORT: numbers (0-9) first, then letters (A-Z), case-insensitive ──
+  function sortGames(list) {
+    return [...list].sort((a, b) => {
+      const na = a.name.toLowerCase();
+      const nb = b.name.toLowerCase();
+      const aIsNum = /^[0-9]/.test(na);
+      const bIsNum = /^[0-9]/.test(nb);
+      if (aIsNum && !bIsNum) return -1;
+      if (!aIsNum && bIsNum) return 1;
+      return na.localeCompare(nb);
+    });
+  }
 
 
   // ── DOTS ANIMATION ──────────────────────────────
@@ -339,7 +420,6 @@
       ctx.fillStyle = `rgba(23,120,153,${a})`;
       ctx.fill();
 
-      // draw faint connection lines between close dots
       dots.forEach(d2 => {
         const dx = d.x - d2.x, dy = d.y - d2.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
@@ -360,41 +440,54 @@
   window.addEventListener('resize', () => { resizeCanvas(); initDots(); });
 
 
-  // ── SEARCH & RENDER ─────────────────────────────
+  // ── PAGINATION STATE ─────────────────────────────
+  const GAMES_PER_PAGE = 9;
+  let currentPage = 1;
+  let currentList = sortGames(GAMES);
+
   const input        = document.getElementById('search-input');
   const grid         = document.getElementById('game-grid');
   const label        = document.getElementById('results-label');
   const noResults    = document.getElementById('no-results');
+  const pagination   = document.getElementById('pagination');
 
-  function renderGames(list) {
+
+  // ── RENDER CURRENT PAGE ──────────────────────────
+  function renderPage() {
     grid.innerHTML = '';
-    if (list.length === 0) {
+    const totalPages = Math.ceil(currentList.length / GAMES_PER_PAGE);
+
+    if (currentList.length === 0) {
       noResults.style.display = 'block';
       label.textContent = '';
+      pagination.innerHTML = '';
       return;
     }
-    noResults.style.display = 'none';
-    label.textContent = `${list.length} game${list.length !== 1 ? 's' : ''} found`;
 
-    list.forEach((g, i) => {
+    noResults.style.display = 'none';
+
+    const start = (currentPage - 1) * GAMES_PER_PAGE;
+    const end   = Math.min(start + GAMES_PER_PAGE, currentList.length);
+    const pageGames = currentList.slice(start, end);
+
+    label.textContent = `${currentList.length} game${currentList.length !== 1 ? 's' : ''} found — page ${currentPage} of ${totalPages}`;
+
+    pageGames.forEach((g, i) => {
       const card = document.createElement('a');
       card.className = 'game-card';
       card.href = g.link;
       card.target = '_blank';
       card.rel = 'noopener noreferrer';
-      card.style.animationDelay = `${i * 60}ms`;
+      card.style.animationDelay = `${i * 55}ms`;
 
-      // Try to show image; fall back to emoji placeholder
-      const imgTag = `<img
+      card.innerHTML = `
+        <img
           class="game-thumb"
           src="${g.image}"
           alt="${g.name}"
           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
         />
-        <div class="game-thumb-placeholder" style="display:none;">🎮</div>`;
-
-      card.innerHTML = `
-        ${imgTag}
+        <div class="game-thumb-placeholder" style="display:none;">🎮</div>
         <div class="game-info">
           <div class="game-name">${g.name}</div>
           <div class="game-play">▶ Play Now</div>
@@ -402,26 +495,84 @@
 
       grid.appendChild(card);
     });
+
+    renderPagination(totalPages);
   }
 
+
+  // ── RENDER PAGINATION BAR ────────────────────────
+  function renderPagination(totalPages) {
+    pagination.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    // ← arrow
+    const prev = document.createElement('button');
+    prev.className = 'page-btn arrow';
+    prev.textContent = '←';
+    prev.title = 'Previous page';
+    if (currentPage === 1) prev.setAttribute('disabled', true);
+    prev.addEventListener('click', () => { currentPage--; renderPage(); window.scrollTo({top:0,behavior:'smooth'}); });
+    pagination.appendChild(prev);
+
+    // Page number buttons with smart ellipsis
+    const range = getPageRange(currentPage, totalPages);
+    range.forEach(item => {
+      if (item === '…') {
+        const dots = document.createElement('span');
+        dots.className = 'page-dots';
+        dots.textContent = '…';
+        pagination.appendChild(dots);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'page-btn' + (item === currentPage ? ' active' : '');
+        btn.textContent = item;
+        btn.addEventListener('click', () => { currentPage = item; renderPage(); window.scrollTo({top:0,behavior:'smooth'}); });
+        pagination.appendChild(btn);
+      }
+    });
+
+    // → arrow
+    const next = document.createElement('button');
+    next.className = 'page-btn arrow';
+    next.textContent = '→';
+    next.title = 'Next page';
+    if (currentPage === totalPages) next.setAttribute('disabled', true);
+    next.addEventListener('click', () => { currentPage++; renderPage(); window.scrollTo({top:0,behavior:'smooth'}); });
+    pagination.appendChild(next);
+  }
+
+  // Smart page range: always show first, last, current ±1, with ellipsis
+  function getPageRange(current, total) {
+    if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+    const pages = new Set([1, total, current, current - 1, current + 1].filter(p => p >= 1 && p <= total));
+    const sorted = [...pages].sort((a, b) => a - b);
+    const result = [];
+    sorted.forEach((p, i) => {
+      if (i > 0 && p - sorted[i-1] > 1) result.push('…');
+      result.push(p);
+    });
+    return result;
+  }
+
+
+  // ── SEARCH ──────────────────────────────────────
   function handleSearch() {
     const q = input.value.trim().toLowerCase();
     if (!q) {
-      renderGames(GAMES);
-      label.textContent = '';
-      return;
+      currentList = sortGames(GAMES);
+    } else {
+      const starts   = GAMES.filter(g => g.name.toLowerCase().startsWith(q));
+      const contains = GAMES.filter(g => !g.name.toLowerCase().startsWith(q) && g.name.toLowerCase().includes(q));
+      currentList = sortGames([...starts, ...contains]);
     }
-    // Show all games whose name starts with the query first, then contains
-    const starts   = GAMES.filter(g => g.name.toLowerCase().startsWith(q));
-    const contains = GAMES.filter(g => !g.name.toLowerCase().startsWith(q) && g.name.toLowerCase().includes(q));
-    renderGames([...starts, ...contains]);
+    currentPage = 1;
+    renderPage();
   }
 
   input.addEventListener('input', handleSearch);
 
-  // Initial render — all games
-  renderGames(GAMES);
-  label.textContent = '';
+  // Initial render
+  renderPage();
 </script>
 </body>
 </html>
